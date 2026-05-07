@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "TestResult": {
+      "title": "MBTI Test Result",
+      "description": "Records a single MBTI test result for a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who took the test."
+        },
+        "type": {
+          "type": "string",
+          "description": "The 4-letter personality type (e.g., INTJ)."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the test was completed."
+        },
+        "scores": {
+          "type": "object",
+          "description": "The counts for each MBTI dimension."
+        }
+      },
+      "required": ["userId", "type", "timestamp", "scores"]
+    }
+  },
+  "firestore": {
+    "/results/{resultId}": {
+      "schema": "TestResult",
+      "description": "Collection of all test results."
+    }
+  }
+}

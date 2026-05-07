@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { questions, personalityDescriptions, Dimension } from './data';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, RotateCcw, ArrowLeft, Brain } from 'lucide-react';
+import { ArrowRight, RotateCcw, ArrowLeft, Brain, History, LogIn, LogOut, Trash2 } from 'lucide-react';
+import { auth, loginWithGoogle, saveTestResult, getTestHistory, deleteTestResult } from './lib/firebase';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 
-type AppState = 'start' | 'test' | 'result';
+type AppState = 'start' | 'test' | 'result' | 'history';
 
 const labelMap: Record<Dimension, string> = {
   E: '外向 (Extraversion)', I: '內向 (Introversion)',
@@ -16,6 +18,16 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>('start');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, 'A' | 'B'>>({});
+  const [user, setUser] = useState<User | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleStart = () => {
     setAppState('test');
@@ -23,14 +35,71 @@ export default function App() {
     setAnswers({});
   };
 
-  const handleAnswer = (option: 'A' | 'B') => {
+  const handleAnswer = async (option: 'A' | 'B') => {
     const question = questions[currentQuestionIndex];
-    setAnswers(prev => ({ ...prev, [question.id]: option }));
+    const newAnswers = { ...answers, [question.id]: option };
+    setAnswers(newAnswers);
     
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
       setAppState('result');
+      // The result calculation depends on answers, but we need the final set
+      // We'll calculate it helper style or wait for useMemo but we want to save it NOW if possible
+      // Actually, since result is useMemo, we can't easily get it here without re-calculating
+    }
+  };
+
+  // Helper to calculate result from given answers
+  const calculateFinalType = (ansMap: Record<number, 'A' | 'B'>) => {
+    const scores: Record<Dimension, number> = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
+    questions.forEach(q => {
+      const ans = ansMap[q.id];
+      if (ans === 'A') scores[q.dimA]++;
+      else if (ans === 'B') scores[q.dimB]++;
+    });
+    const pjDiff = ((scores.P - scores.J) / 22) * 10;
+    const snDiff = ((scores.S - scores.N) / 26) * 10;
+    const ieDiff = ((scores.I - scores.E) / 21) * 10;
+    const tfDiff = ((scores.T - scores.F) / 24) * 10;
+    const type = [
+      ieDiff >= 0 ? 'I' : 'E',
+      snDiff >= 0 ? 'S' : 'N',
+      tfDiff >= 0 ? 'T' : 'F',
+      pjDiff >= 0 ? 'P' : 'J'
+    ].join('');
+    return { type, scores };
+  };
+
+  // Save result when reaching result state
+  useEffect(() => {
+    if (appState === 'result' && user) {
+      const { type, scores } = calculateFinalType(answers);
+      saveTestResult(user.uid, type, scores).catch(err => console.error("Failed to save result", err));
+    }
+  }, [appState, user]);
+
+  const viewHistory = async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    setAppState('history');
+    try {
+      const data = await getTestHistory(user.uid);
+      setHistory(data || []);
+    } catch (error) {
+      console.error("Failed to fetch history", error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("確定要刪除這筆紀錄嗎？")) return;
+    try {
+      await deleteTestResult(id);
+      setHistory(prev => prev.filter(item => item.id !== id));
+    } catch (error) {
+      console.error("Delete failed", error);
     }
   };
 
@@ -82,6 +151,21 @@ export default function App() {
             className="max-w-2xl w-full bg-[#1F2937] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-white/5 overflow-hidden"
           >
             <div className="p-10 md:p-16 flex flex-col items-center text-center">
+              <div className="w-full flex justify-end mb-4 absolute top-4 right-4">
+                {user ? (
+                  <div className="flex items-center gap-3">
+                    <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-white/10" />
+                    <button onClick={() => signOut(auth)} className="text-[12px] text-[#9CA3AF] hover:text-[#F9FAFB] flex items-center gap-1">
+                      <LogOut className="w-3 h-3" /> 登出
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={loginWithGoogle} className="bg-[#111827] border border-white/10 text-[#F9FAFB] px-4 py-2 rounded-lg text-[12px] font-medium flex items-center gap-2 hover:bg-white/5 transition-all">
+                    <LogIn className="w-4 h-4" /> 使用 Google 登入同步結果
+                  </button>
+                )}
+              </div>
+
               <div className="w-14 h-14 bg-[#111827] border border-white/10 rounded-2xl flex items-center justify-center mb-8 shadow-sm">
                 <Brain className="w-7 h-7 text-[#5B6CFF]" />
               </div>
@@ -98,12 +182,23 @@ export default function App() {
                 共 93 題 • 預計耗時 10 分鐘
               </p>
               
-              <button
-                onClick={handleStart}
-                className="bg-[#5B6CFF] hover:bg-[#4a5be6] text-white px-8 py-3.5 rounded-full text-[14px] font-semibold transition-all duration-200 inline-flex items-center gap-2 shadow-lg shadow-[#5B6CFF]/20 active:scale-[0.98]"
-              >
-                開始測試 <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex flex-col md:flex-row gap-4">
+                <button
+                  onClick={handleStart}
+                  className="bg-[#5B6CFF] hover:bg-[#4a5be6] text-white px-8 py-3.5 rounded-full text-[14px] font-semibold transition-all duration-200 inline-flex items-center gap-2 shadow-lg shadow-[#5B6CFF]/20 active:scale-[0.98]"
+                >
+                  開始測試 <ArrowRight className="w-4 h-4" />
+                </button>
+                
+                {user && (
+                  <button
+                    onClick={viewHistory}
+                    className="bg-[#111827] border border-white/10 text-[#F9FAFB] px-8 py-3.5 rounded-full text-[14px] font-semibold transition-all duration-200 inline-flex items-center gap-2 hover:bg-white/5 active:scale-[0.98]"
+                  >
+                    <History className="w-4 h-4" /> 歷史紀錄
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -224,16 +319,76 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex justify-start pt-6 border-t border-white/5">
+                <div className="flex justify-start pt-6 border-t border-white/5 gap-4">
                   <button
                     onClick={handleStart}
                     className="flex items-center gap-2 text-[#F9FAFB] bg-[#111827] border border-white/10 hover:bg-white/5 active:scale-[0.98] text-[14px] font-medium transition-all duration-200 px-5 py-2.5 rounded-xl shadow-sm"
                   >
                     <RotateCcw className="w-4 h-4" /> 重新測試
                   </button>
+                  {user && (
+                    <button
+                        onClick={viewHistory}
+                        className="flex items-center gap-2 text-[#F9FAFB] bg-[#111827] border border-white/10 hover:bg-white/5 active:scale-[0.98] text-[14px] font-medium transition-all duration-200 px-5 py-2.5 rounded-xl shadow-sm"
+                    >
+                        <History className="w-4 h-4" /> 查看紀錄
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {appState === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="max-w-3xl w-full"
+          >
+             <div className="bg-[#1F2937] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-white/5 overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#111827]/50">
+                    <button onClick={() => setAppState('start')} className="text-[#9CA3AF] hover:text-[#F9FAFB] flex items-center gap-2 text-[14px]">
+                        <ArrowLeft className="w-4 h-4" /> 返回主頁
+                    </button>
+                    <h2 className="text-[18px] font-bold text-[#F9FAFB]">歷史測試紀錄</h2>
+                    <div className="w-10" />
+                </div>
+
+                <div className="p-6 md:p-8 max-h-[60vh] overflow-y-auto">
+                    {loadingHistory ? (
+                        <div className="text-center py-10 text-[#9CA3AF]">載入中...</div>
+                    ) : history.length === 0 ? (
+                        <div className="text-center py-10 text-[#9CA3AF]">尚無測試紀錄</div>
+                    ) : (
+                        <div className="space-y-4">
+                            {history.map((item) => (
+                                <div key={item.id} className="bg-[#111827] p-5 rounded-xl border border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-14 bg-gradient-to-b from-[#5B6CFF] to-[#8E5CF4] text-white flex items-center justify-center font-bold text-xl rounded-lg">
+                                            {item.type}
+                                        </div>
+                                        <div>
+                                            <div className="text-[#F9FAFB] font-semibold">{personalityDescriptions[item.type]?.title}</div>
+                                            <div className="text-[#9CA3AF] text-[12px]">
+                                                {item.timestamp?.toDate ? item.timestamp.toDate().toLocaleString() : '未知時間'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)}
+                                        className="text-[#9CA3AF] hover:text-[#EF4444] p-2 rounded-lg hover:bg-white/5 transition-all"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+             </div>
           </motion.div>
         )}
       </AnimatePresence>

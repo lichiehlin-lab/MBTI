@@ -6,10 +6,10 @@ import { ArrowRight, RotateCcw, ArrowLeft, Brain } from 'lucide-react';
 type AppState = 'start' | 'test' | 'result';
 
 const labelMap: Record<Dimension, string> = {
-  E: 'Extraversion', I: 'Introversion',
-  S: 'Sensing', N: 'Intuition',
-  T: 'Thinking', F: 'Feeling',
-  J: 'Judging', P: 'Perceiving'
+  E: '外向 (Extraversion)', I: '內向 (Introversion)',
+  S: '實感 (Sensing)', N: '直覺 (Intuition)',
+  T: '思考 (Thinking)', F: '情感 (Feeling)',
+  J: '判斷 (Judging)', P: '感知 (Perceiving)'
 };
 
 export default function App() {
@@ -87,22 +87,22 @@ export default function App() {
               </div>
               
               <h1 className="text-[32px] font-bold mb-6 text-[#F9FAFB] tracking-tight">
-                MBTI Personality Test
+                MBTI 性格測試
               </h1>
               
               <p className="text-[14px] font-normal text-[#9CA3AF] mb-10 leading-relaxed max-w-lg">
-                This questionnaire is designed to reveal how you see things and make decisions. There are no right or wrong answers. The results will help you understand your career preferences, personality traits, and interpersonal characteristics.
+                這份測驗旨在揭示你如何看侍事物以及如何做決定。答案沒有對錯之分。結果將幫助你了解自己的職業偏好、人格特質和社交特徵。
               </p>
               
               <p className="text-[14px] font-medium text-[#F9FAFB] mb-10">
-                93 questions • Takes about 10 minutes
+                共 93 題 • 預計耗時 10 分鐘
               </p>
               
               <button
                 onClick={handleStart}
                 className="bg-[#5B6CFF] hover:bg-[#4a5be6] text-white px-8 py-3.5 rounded-full text-[14px] font-semibold transition-all duration-200 inline-flex items-center gap-2 shadow-lg shadow-[#5B6CFF]/20 active:scale-[0.98]"
               >
-                Start Assessment <ArrowRight className="w-4 h-4" />
+                開始測試 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </motion.div>
@@ -129,12 +129,12 @@ export default function App() {
                       : 'text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-white/5'
                   }`}
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Previous
+                  <ArrowLeft className="w-3.5 h-3.5" /> 上一題
                 </button>
                 
                 <div className="flex items-center gap-3">
                   <span className="text-[12px] font-medium text-[#9CA3AF]">
-                    <span className="text-[#F9FAFB] font-bold">{currentQuestionIndex + 1}</span> / {questions.length}
+                    進度 <span className="text-[#F9FAFB] font-bold">{currentQuestionIndex + 1}</span> / {questions.length}
                   </span>
                   <div className="w-24 h-1 bg-[#111827] rounded-full overflow-hidden border border-white/5">
                     <motion.div
@@ -183,7 +183,7 @@ export default function App() {
           >
             <div className="bg-[#1F2937] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-white/5 overflow-hidden">
               <div className="p-8 md:p-12 text-center border-b border-white/5 bg-[#111827]/50">
-                <p className="text-[#9CA3AF] text-[12px] font-medium uppercase tracking-widest mb-6">Your Profile</p>
+                <p className="text-[#9CA3AF] text-[12px] font-medium uppercase tracking-widest mb-6">你的性格類型為</p>
                 
                 <div className="flex justify-center gap-3 mb-6">
                   {result.type.split('').map((letter, i) => (
@@ -206,7 +206,7 @@ export default function App() {
               
               <div className="p-8 md:p-10">
                 <div className="mb-10">
-                  <h2 className="text-[14px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-4">Overview</h2>
+                  <h2 className="text-[14px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-4">分析描述</h2>
                   <div className="bg-[#111827] p-6 rounded-xl border border-white/5">
                     <p className="text-[#F9FAFB] text-[14px] leading-relaxed">
                       {personalityDescriptions[result.type]?.desc}
@@ -215,7 +215,7 @@ export default function App() {
                 </div>
 
                 <div className="mb-10">
-                  <h2 className="text-[14px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-4">Trait Breakdown</h2>
+                  <h2 className="text-[14px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-4">維度分析</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ScoreCard dim1="E" dim2="I" val1={result.scores.E} val2={result.scores.I} diff={result.ieDiff} />
                     <ScoreCard dim1="S" dim2="N" val1={result.scores.S} val2={result.scores.N} diff={result.snDiff} />
@@ -229,7 +229,7 @@ export default function App() {
                     onClick={handleStart}
                     className="flex items-center gap-2 text-[#F9FAFB] bg-[#111827] border border-white/10 hover:bg-white/5 active:scale-[0.98] text-[14px] font-medium transition-all duration-200 px-5 py-2.5 rounded-xl shadow-sm"
                   >
-                    <RotateCcw className="w-4 h-4" /> Retake Assessment
+                    <RotateCcw className="w-4 h-4" /> 重新測試
                   </button>
                 </div>
               </div>
@@ -252,11 +252,11 @@ function ScoreCard({ dim1, dim2, val1, val2, diff }: { dim1: Dimension, dim2: Di
       <div className="flex justify-between mb-3">
         <div className="flex flex-col items-start">
           <span className="text-[14px] font-semibold text-[#F9FAFB] mb-0.5">{labelMap[dim1]}</span>
-          <span className="text-[12px] font-normal text-[#9CA3AF]">{val1} pts</span>
+          <span className="text-[12px] font-normal text-[#9CA3AF]">{val1} 分</span>
         </div>
         <div className="flex flex-col items-end">
           <span className="text-[14px] font-semibold text-[#F9FAFB] mb-0.5">{labelMap[dim2]}</span>
-          <span className="text-[12px] font-normal text-[#9CA3AF]">{val2} pts</span>
+          <span className="text-[12px] font-normal text-[#9CA3AF]">{val2} 分</span>
         </div>
       </div>
       
@@ -268,7 +268,7 @@ function ScoreCard({ dim1, dim2, val1, val2, diff }: { dim1: Dimension, dim2: Di
       {isClose && (
         <div className="mt-3 text-[12px] font-normal text-[#F59E0B] flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></div>
-          Balanced trait
+          數值接近，類型偏向可能較不明顯
         </div>
       )}
     </div>
